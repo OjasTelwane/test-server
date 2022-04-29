@@ -1,0 +1,50 @@
+@startuml
+
+actor "web User" as webUser
+participant "Front End" as Portal
+participant Gateway
+participant "Identity\nServer" as IdentityServer
+participant "Rest Api" as RestApi
+database OrdersDatabase
+entity "External Shipping Service" as ExternalShippingService
+
+autonumber
+webUser -> Portal ++ : Orders Request
+group Step: Authentication
+  Portal -> Gateway ++: GET /api/v1/orders\nBearer Token
+  Gateway -> IdentityServer ++: Authenticate Token
+  IdentityServer -> IdentityServer : Validate\nToken
+  IdentityServer -> Gateway --: Success, Token Validated
+
+else Authentication Failed
+autonumber 5
+  IdentityServer -> Gateway --: Request Failed
+  Gateway -> Portal : Authentication Failure
+  Portal -> webUser : Login Again 
+  note right: Authentication has Failed
+end
+
+autonumber 6
+group Call Order Api
+  Gateway -> RestApi ++: GET api/v1/orders
+  RestApi --[#blue]> RestApi: Do Something 
+    group Database Interaction
+    autonumber 8.1
+      RestApi -> OrderDatabase ++: Query Orders
+      OrderDatabase -> RestApi --: Orders
+    end
+
+    'loop 
+    autonumber inc A
+    loop Find Shipping Status
+      RestApi -> ExternalShippingService ++: Find Shipping Status
+      ExternalShippingService -> RestApi --: Return Shipping Status
+    end
+    autonumber 9
+    RestApi -> Portal --: Orders
+
+end
+
+Portal -> webUser --: Resopnse
+
+@enduml
